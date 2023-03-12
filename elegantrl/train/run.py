@@ -26,9 +26,9 @@ def train_agent(args: Config):
 
     '''init environment'''
     env = build_env(args.env_class, args.env_args, args.gpu_id)
-
+    # max_action=float(env.env.action_space.high[0])
     '''init agent'''
-    agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
+    agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim,args.max_action, gpu_id=args.gpu_id, args=args)
     agent.save_or_load_agent(args.cwd, if_save=False)
 
     '''init agent.last_state'''

@@ -1,6 +1,8 @@
 import sys
 from argparse import ArgumentParser
 
+import wandb
+
 sys.path.append("..")
 if True:  # write after `sys.path.append("..")`
     from elegantrl import train_agent, train_agent_multiprocessing
@@ -12,13 +14,14 @@ if True:  # write after `sys.path.append("..")`
 def train_ddpg_td3_sac_for_pendulum():
     from elegantrl.envs.CustomGymEnv import PendulumEnv
 
-    agent_class = [AgentDDPG, AgentTD3, AgentSAC, AgentModSAC][DRL_ID]  # DRL algorithm name
+    agent_class = AgentTD3#[AgentTD3,AgentDDPG,  AgentSAC, AgentModSAC][DRL_ID]  # DRL algorithm name
     env_class = PendulumEnv  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'Pendulum',  # Apply torque on the free end to swing a pendulum into an upright position
         'max_step': 200,  # the max step number of an episode.
         'state_dim': 3,  # the x-y coordinates of the pendulum's free end and its angular velocity.
         'action_dim': 1,  # the torque applied to free end of the pendulum
+        'max_action':2.0,#todo !
         'if_discrete': False  # continuous action space, symbols → direction, value → force
     }
     get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
@@ -214,6 +217,7 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 
 
 if __name__ == '__main__':
+    wandb.init(entity="aohuidai",project="TD3_diffusion",)
     Parser = ArgumentParser(description='ArgumentParser for ElegantRL')
     Parser.add_argument('--gpu', type=int, default=0, help='GPU device ID for training')
     Parser.add_argument('--drl', type=int, default=0, help='RL algorithms ID for training')

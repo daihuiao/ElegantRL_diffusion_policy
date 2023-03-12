@@ -21,6 +21,7 @@ class Config:
                         'max_step': 12345,
                         'state_dim': None,
                         'action_dim': None,
+                        'max_action': None,
                         'if_discrete': None, }
         env_args.setdefault('num_envs', 1)  # `num_envs=1` in default in single env.
         env_args.setdefault('max_step', 12345)  # `max_step=12345` in default, which is a large enough value.
@@ -29,6 +30,7 @@ class Config:
         self.max_step = env_args['max_step']  # the max step number of an episode. 'set as 12345 in default.
         self.state_dim = env_args['state_dim']  # vector dimension (feature number) of state
         self.action_dim = env_args['action_dim']  # vector dimension (feature number) of action
+        self.max_action = env_args['max_action']  # vector dimension (feature number) of action
         self.if_discrete = env_args['if_discrete']  # discrete or continuous action space
 
         '''Arguments for reward shaping'''
@@ -72,7 +74,7 @@ class Config:
 
         self.save_gap = int(8)  # save actor f"{cwd}/actor_*.pth" for learning curve.
         self.eval_times = int(3)  # number of times that get the average episodic cumulative return
-        self.eval_per_step = int(2e4)  # evaluate the agent per training steps
+        self.eval_per_step = int(1e4)  # evaluate the agent per training steps
         self.eval_env_class = None  # eval_env = eval_env_class(*eval_env_args)
         self.eval_env_args = None  # eval_env = eval_env_class(*eval_env_args)
 

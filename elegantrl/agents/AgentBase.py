@@ -3,8 +3,15 @@ import torch
 from typing import Tuple, Union
 from torch import Tensor
 from torch.nn.utils import clip_grad_norm_
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from elegantrl.train import Config, ReplayBuffer
+from elegantrl.agents.diffusion import Diffusion
+from elegantrl.agents.model import MLP
+from elegantrl.agents.helpers import EMA
+from elegantrl.utils.pytorch_util import PositionalEmbedding
 
 
 class AgentBase:
@@ -18,7 +25,8 @@ class AgentBase:
     args: the arguments for agent training. `args = Config()`
     """
 
-    def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
+    def __init__(self, net_dims: [int], state_dim: int, action_dim: int, max_action: float, beta_schedule,
+                 n_timesteps: int,gradient_scale:float=1.0, gpu_id: int = 0, args: Config = Config()):
         self.gamma = args.gamma  # discount factor of future rewards
         self.num_envs = args.num_envs  # the number of sub envs in vectorized env. `num_envs=1` in single env.
         self.batch_size = args.batch_size  # num of transitions sampled from replay buffer.
@@ -38,9 +46,17 @@ class AgentBase:
         '''network'''
         act_class = getattr(self, "act_class", None)
         cri_class = getattr(self, "cri_class", None)
-        self.act = self.act_target = act_class(net_dims, state_dim, action_dim).to(self.device)
+        self.model = MLP(state_dim=state_dim, action_dim=action_dim, device=self.device)  # state_dim 用不上
+        self.n_timesteps = n_timesteps
+        self.act =  self.act_target = Diffusion(state_dim=state_dim, action_dim=action_dim,
+                                                                 model=self.model, max_action=max_action,
+                                                                 beta_schedule=beta_schedule,
+                                                                 n_timesteps=n_timesteps, ).to(self.device)
+        # self.act = self.act_target = act_class(net_dims, state_dim, action_dim).to(self.device)
         self.cri = self.cri_target = cri_class(net_dims, state_dim, action_dim).to(self.device) \
             if cri_class else self.act
+        self.time_embeding = PositionalEmbedding
+        self.gradient_scale = gradient_scale
 
         '''optimizer'''
         self.act_optimizer = torch.optim.AdamW(self.act.parameters(), self.learning_rate)
@@ -67,6 +83,7 @@ class AgentBase:
         """save and load"""
         self.save_attr_names = {'act', 'act_target', 'act_optimizer', 'cri', 'cri_target', 'cri_optimizer'}
 
+
     def explore_one_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[Tensor, ...]:
         """
         Collect trajectories through the actor-environment interaction for a **single** environment instance.
@@ -88,9 +105,9 @@ class AgentBase:
 
         state = self.last_state  # state.shape == (1, state_dim) for a single env.
 
-        get_action = self.act.get_action
+        # get_action = self.act.get_action
         for t in range(horizon_len):
-            action = torch.rand(1, self.action_dim) * 2 - 1.0 if if_random else get_action(state)
+            action = torch.rand(1, self.action_dim) * 2 - 1.0 if if_random else self.get_action(state)#todo???
             states[t] = state
 
             ary_action = action[0].detach().cpu().numpy()
@@ -98,7 +115,7 @@ class AgentBase:
             ary_state = env.reset() if done else ary_state  # ary_state.shape == (state_dim, )
             state = torch.as_tensor(ary_state, dtype=torch.float32, device=self.device).unsqueeze(0)
             actions[t] = action
-            rewards[t] = reward
+            rewards[t] = torch.as_tensor(reward, dtype=torch.float32, device=self.device)
             dones[t] = done
 
         self.last_state = state  # state.shape == (1, state_dim) for a single env.

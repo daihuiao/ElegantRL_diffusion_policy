@@ -359,7 +359,7 @@ class CriticBase(nn.Module):  # todo state_norm, value_norm
         return (state - self.state_avg) / self.state_std  # todo state_norm
 
     def value_re_norm(self, value: Tensor) -> Tensor:
-        return value * self.value_std + self.value_avg  # todo value_norm
+        return value * self.value_std + self.value_avg  # todo value_norm  !!!
 
 
 class Critic(CriticBase):
